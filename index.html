@@ -1,141 +1,245 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Explorable Realistic 3D Castle</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Castle</title>
   <style>
-    html, body { height: 100%; }
-    body { margin: 0; overflow: hidden; background: #6db2ff; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial; }
-    #ui { position: fixed; top: 10px; left: 10px; z-index: 10; display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: rgba(0,0,0,0.35); border-radius: 8px; color: #fff; }
-    #hint { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); color: white; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 8px; }
-    #ui button, #ui select { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
-    #ui button:hover, #ui select:hover { background: rgba(255,255,255,0.25); }
-    #webgl-warning { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: #0b0e1add; color: #fff; text-align: center; padding: 24px; z-index: 1000; }
-    #webgl-warning a { color: #9ed1ff; }
-    canvas { display: block; }
-  </style>
-  <script>
-    function isWebGLAvailable() {
-      try {
-        const canvas = document.createElement('canvas');
-        return !!(window.WebGLRenderingContext && (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-      } catch (e) { return false; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+      font-family: Arial, sans-serif;
     }
-    document.addEventListener('DOMContentLoaded', () => {
-      if (!isWebGLAvailable()) {
-        const el = document.getElementById('webgl-warning');
-        if (el) el.style.display = 'flex';
-      }
-    });
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/examples/js/controls/PointerLockControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.1/examples/js/loaders/RGBELoader.js"></script>
+    canvas {
+      display: block;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+  </style>
 </head>
 <body>
-  <div id="webgl-warning">
-    <div>
-      <h2>Your device/browser doesn't seem to support WebGL.</h2>
-      <p>Please update your browser or enable hardware acceleration. See <a href="https://get.webgl.org/" target="_blank" rel="noopener">get.webgl.org</a> for help.</p>
-    </div>
+  <div id="info">
+    3D Castle Scene<br>
+    Mouse: Rotate | Scroll: Zoom
   </div>
-
-  <div id="ui">
-    <button id="viewExterior">Exterior</button>
-    <button id="viewInterior">Interior</button>
-    <button id="toggleDayNight">Day/Night</button>
-    <label>Quality
-      <select id="quality">
-        <option value="high" selected>High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
-      </select>
-    </label>
-  </div>
-  <div id="hint">Click scene to move. WASD to walk, Space jump, Shift sprint, E open doors.</div>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, 100, 500);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(50, 40, 50);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 3000);
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
 
-    const orbit = new THREE.OrbitControls(camera, renderer.domElement);
-    orbit.enableDamping = true; orbit.dampingFactor = 0.05; orbit.maxPolarAngle = Math.PI * 0.49; orbit.target.set(0, 6, 0);
-    const fp = new THREE.PointerLockControls(camera, renderer.domElement);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    directionalLight.shadow.camera.far = 200;
+    scene.add(directionalLight);
 
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    new THREE.RGBELoader().load('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/venice_sunset_2k.hdr', (hdr) => {
-      const env = pmrem.fromEquirectangular(hdr).texture; scene.environment = env; hdr.dispose(); pmrem.dispose();
+    // Ground
+    const groundGeometry = new THREE.PlaneGeometry(200, 200);
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Castle group
+    const castle = new THREE.Group();
+
+    // Function to create tower
+    function createTower(x, z, height) {
+      const towerGroup = new THREE.Group();
+      
+      // Tower body
+      const bodyGeometry = new THREE.CylinderGeometry(3, 3, height, 16);
+      const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
+      const body = new THREE.Mesh(bodyGeometry, stoneMaterial);
+      body.position.y = height / 2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      towerGroup.add(body);
+
+      // Tower roof
+      const roofGeometry = new THREE.ConeGeometry(4, 6, 16);
+      const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+      const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+      roof.position.y = height + 3;
+      roof.castShadow = true;
+      towerGroup.add(roof);
+
+      // Windows
+      const windowGeometry = new THREE.BoxGeometry(0.5, 1.5, 0.5);
+      const windowMaterial = new THREE.MeshStandardMaterial({ color: 0x4169E1 });
+      for (let i = 0; i < 4; i++) {
+        const angle = (Math.PI / 2) * i;
+        const window = new THREE.Mesh(windowGeometry, windowMaterial);
+        window.position.x = Math.cos(angle) * 3.2;
+        window.position.y = height * 0.6;
+        window.position.z = Math.sin(angle) * 3.2;
+        towerGroup.add(window);
+      }
+
+      towerGroup.position.set(x, 0, z);
+      return towerGroup;
+    }
+
+    // Function to create wall
+    function createWall(x, z, width, height, rotation) {
+      const wallGeometry = new THREE.BoxGeometry(width, height, 2);
+      const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
+      const wall = new THREE.Mesh(wallGeometry, stoneMaterial);
+      wall.position.set(x, height / 2, z);
+      wall.rotation.y = rotation;
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      return wall;
+    }
+
+    // Create castle structure
+    const towerHeight = 20;
+    
+    // Four corner towers
+    castle.add(createTower(-15, -15, towerHeight));
+    castle.add(createTower(15, -15, towerHeight));
+    castle.add(createTower(-15, 15, towerHeight));
+    castle.add(createTower(15, 15, towerHeight));
+
+    // Walls connecting towers
+    castle.add(createWall(0, -15, 24, 12, 0));
+    castle.add(createWall(0, 15, 24, 12, 0));
+    castle.add(createWall(-15, 0, 24, 12, Math.PI / 2));
+    castle.add(createWall(15, 0, 24, 12, Math.PI / 2));
+
+    // Central keep
+    const keepGeometry = new THREE.BoxGeometry(12, 25, 12);
+    const keepMaterial = new THREE.MeshStandardMaterial({ color: 0x696969 });
+    const keep = new THREE.Mesh(keepGeometry, keepMaterial);
+    keep.position.y = 12.5;
+    keep.castShadow = true;
+    keep.receiveShadow = true;
+    castle.add(keep);
+
+    // Keep roof
+    const keepRoofGeometry = new THREE.ConeGeometry(8, 8, 4);
+    const keepRoofMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const keepRoof = new THREE.Mesh(keepRoofGeometry, keepRoofMaterial);
+    keepRoof.position.y = 29;
+    keepRoof.castShadow = true;
+    castle.add(keepRoof);
+
+    // Gate
+    const gateGeometry = new THREE.BoxGeometry(6, 8, 0.5);
+    const gateMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+    const gate = new THREE.Mesh(gateGeometry, gateMaterial);
+    gate.position.set(0, 4, -15.5);
+    castle.add(gate);
+
+    // Add battlements
+    for (let i = -15; i <= 15; i += 3) {
+      const battlement = new THREE.BoxGeometry(2, 2, 2);
+      const battlementMesh = new THREE.Mesh(battlement, stoneMaterial);
+      battlementMesh.position.set(i, 13, -15);
+      battlementMesh.castShadow = true;
+      castle.add(battlementMesh);
+      
+      const battlementMesh2 = new THREE.Mesh(battlement, stoneMaterial);
+      battlementMesh2.position.set(i, 13, 15);
+      battlementMesh2.castShadow = true;
+      castle.add(battlementMesh2);
+    }
+
+    scene.add(castle);
+
+    // Add some trees
+    function createTree(x, z) {
+      const treeGroup = new THREE.Group();
+      
+      const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 6, 8);
+      const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+      const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+      trunk.position.y = 3;
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
+
+      const leavesGeometry = new THREE.ConeGeometry(3, 8, 8);
+      const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+      const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+      leaves.position.y = 9;
+      leaves.castShadow = true;
+      treeGroup.add(leaves);
+
+      treeGroup.position.set(x, 0, z);
+      return treeGroup;
+    }
+
+    // Add trees around castle
+    scene.add(createTree(-35, -35));
+    scene.add(createTree(-35, 35));
+    scene.add(createTree(35, -35));
+    scene.add(createTree(35, 35));
+    scene.add(createTree(-40, 0));
+    scene.add(createTree(40, 0));
+
+    // Mouse controls
+    let mouseX = 0;
+    let mouseY = 0;
+    let targetRotationX = 0;
+    let targetRotationY = 0;
+
+    document.addEventListener('mousemove', (event) => {
+      mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+      mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
     });
-    const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(80, 120, 60); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); scene.add(sun);
-    const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x667755, 0.7); scene.add(hemi);
 
-    const TL = new THREE.TextureLoader();
-    const repeat = (url, u = 1, v = 1) => { const t = TL.load(url); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(u, v); t.anisotropy = 8; return t; };
-    const matStone = (scale = 6) => new THREE.MeshStandardMaterial({ map: repeat('https://textures.polyhaven.org/asset_img/primary/stone_bricks_003/stone_bricks_003_diff_1k.jpg', scale, scale), normalMap: repeat('https://textures.polyhaven.org/asset_img/primary/stone_bricks_003/stone_bricks_003_nor_gl_1k.jpg', scale, scale), roughnessMap: repeat('https://textures.polyhaven.org/asset_img/primary/stone_bricks_003/stone_bricks_003_rough_1k.jpg', scale, scale), roughness: 0.85 });
-    const matWood = (scale = 3) => new THREE.MeshStandardMaterial({ map: repeat('https://textures.polyhaven.org/asset_img/primary/wood_floor_006/wood_floor_006_diff_1k.jpg', scale, scale), normalMap: repeat('https://textures.polyhaven.org/asset_img/primary/wood_floor_006/wood_floor_006_nor_gl_1k.jpg', scale, scale), roughnessMap: repeat('https://textures.polyhaven.org/asset_img/primary/wood_floor_006/wood_floor_006_rough_1k.jpg', scale, scale), roughness: 0.6 });
-    const matRoof = (scale = 4) => new THREE.MeshStandardMaterial({ map: repeat('https://textures.polyhaven.org/asset_img/primary/roof_tiles_03/roof_tiles_03_diff_1k.jpg', scale, scale), normalMap: repeat('https://textures.polyhaven.org/asset_img/primary/roof_tiles_03/roof_tiles_03_nor_gl_1k.jpg', scale, scale), roughnessMap: repeat('https://textures.polyhaven.org/asset_img/primary/roof_tiles_03/roof_tiles_03_rough_1k.jpg', scale, scale), roughness: 0.7 });
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-    const gC = repeat('https://textures.polyhaven.org/asset_img/primary/stone_cobble_001/stone_cobble_001_diff_1k.jpg', 40, 40);
-    const gN = repeat('https://textures.polyhaven.org/asset_img/primary/stone_cobble_001/stone_cobble_001_nor_gl_1k.jpg', 40, 40);
-    const gR = repeat('https://textures.polyhaven.org/asset_img/primary/stone_cobble_001/stone_cobble_001_rough_1k.jpg', 40, 40);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardMaterial({ map: gC, normalMap: gN, roughnessMap: gR, roughness: 0.9 }));
-    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
 
-    const castle = new THREE.Group(); scene.add(castle);
-    const wallMat = matStone(10), innerWallMat = matStone(6), floorMat = matWood(5), roofMat = matRoof(6);
+      // Smooth camera rotation based on mouse
+      targetRotationY = mouseX * 0.5;
+      targetRotationX = mouseY * 0.3;
+      
+      camera.position.x = 50 * Math.cos(targetRotationY) * Math.cos(targetRotationX);
+      camera.position.y = 40 + 20 * targetRotationX;
+      camera.position.z = 50 * Math.sin(targetRotationY) * Math.cos(targetRotationX);
+      camera.lookAt(0, 10, 0);
 
-    function wall(x, z, w, h, d) { const g = new THREE.BoxGeometry(w, h, d); const m = new THREE.Mesh(g, wallMat); m.position.set(x, h / 2, z); m.castShadow = m.receiveShadow = true; castle.add(m); return m; }
-    function tower(x, z) { const grp = new THREE.Group(); const base = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 26, 32), wallMat); base.position.y = 13; base.castShadow = base.receiveShadow = true; grp.add(base); const roof = new THREE.Mesh(new THREE.ConeGeometry(9.5, 10, 32), roofMat); roof.position.y = 30; roof.castShadow = true; grp.add(roof); grp.position.set(x, 0, z); castle.add(grp); return grp; }
+      renderer.render(scene, camera);
+    }
 
-    wall(0, -70, 160, 14, 3); wall(0, 70, 160, 14, 3); wall(-81.5, 0, 3, 14, 140); wall(81.5, 0, 3, 14, 140);
-    const gatehouse = new THREE.Group(); castle.add(gatehouse);
-    const gateBody = new THREE.Mesh(new THREE.BoxGeometry(20, 18, 16), wallMat); gateBody.position.set(0, 9, -70); gateBody.castShadow = gateBody.receiveShadow = true; gatehouse.add(gateBody);
-
-    const portMat = new THREE.MeshStandardMaterial({ color: 0x666666, metalness: 0.7, roughness: 0.35 });
-    const port = new THREE.Group(); for (let i = -5; i <= 5; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.4, 12, 0.4), portMat); bar.position.set(i * 1.4, 6, -62); bar.castShadow = true; port.add(bar); } gatehouse.add(port);
-
-    tower(-80, -70); tower(80, -70); tower(-80, 70); tower(80, 70);
-
-    const keep = new THREE.Group(); castle.add(keep); const keepW = 40, keepD = 28, H = 10, levels = 3;
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(keepW, H * levels, keepD), wallMat); shell.position.y = H * levels / 2; shell.castShadow = shell.receiveShadow = true; keep.add(shell);
-
-    const crenG = new THREE.BoxGeometry(2, 2.5, 2);
-    for (let x = -keepW / 2 + 2; x <= keepW / 2 - 2; x += 4) { const c1 = new THREE.Mesh(crenG, wallMat); c1.position.set(x, H * levels + 1.5, -keepD / 2); const c2 = c1.clone(); c2.position.z = keepD / 2; keep.add(c1, c2); }
-    for (let z = -keepD / 2 + 2; z <= keepD / 2 - 2; z += 4) { const c1 = new THREE.Mesh(crenG, wallMat); c1.position.set(-keepW / 2, H * levels + 1.5, z); const c2 = c1.clone(); c2.position.x = keepW / 2; keep.add(c1, c2); }
-
-    const colliders = [];
-    function addFloor(y) { const f = new THREE.Mesh(new THREE.BoxGeometry(keepW - 1, 1, keepD - 1), floorMat); f.position.set(0, y, 0); f.receiveShadow = true; keep.add(f); colliders.push(f); }
-    for (let i = 1; i < levels; i++) addFloor(i * H);
-
-    function iw(x, y, z, w, h, d) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), innerWallMat); m.position.set(x, y + h / 2, z); m.castShadow = m.receiveShadow = true; keep.add(m); colliders.push(m); return m; }
-    iw(0, 0, 0, keepW - 4, 8, 1); iw(-keepW / 4, 0, 0, 1, 8, keepD - 4); iw(keepW / 4, 0, 0, 1, 8, keepD - 4);
-    iw(0, H, 0, keepW - 6, 8, 1); iw(0, 2 * H, 0, keepW - 6, 8, 1);
-
-    const doors = []; function door(px, py, pz, rot = 0) { const d = new THREE.Group(); const leaf = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 0.3), matWood(1.5)); leaf.position.set(0, 2, 0); leaf.castShadow = true; d.add(leaf); d.position.set(px, py, pz); d.rotation.y = rot; keep.add(d); doors.push({ g: d, open: false, leaf }); return d; }
-    door(0, 0, -keepD / 2 + 0.6, 0); door(-keepW / 4, 0, 0.5, Math.PI / 2); door(keepW / 4, 0, -0.5, -Math.PI / 2);
-    door(0, H, 0.5, 0); door(0, 2 * H, -0.5, 0);
-
-    const furn = new THREE.Group(); keep.add(furn);
-    function table(x, y, z) { const g = new THREE.Group(); const top = new THREE.Mesh(new THREE.BoxGeometry(5, 0.3, 2), matWood(2)); top.position.set(0, 1.2, 0); g.add(top); const legG = new THREE.BoxGeometry(0.2, 1.2, 0.2); const positions = [[2.2, 0.6, 0.9], [-2.2, 0.6, 0.9], [2.2, 0.6, -0.9], [-2.2, 0.6, -0.9]]; positions.forEach(p => { const l = new THREE.Mesh(legG, matWood(2)); l.position.set(...p); g.add(l); }); g.position.set(x, y, z); furn.add(g); }
-    table(0, 0, 0); table(-8, 0, 6); table(8, 0, -6);
-
-    function setExterior() { orbit.enabled = true; fp.unlock(); camera.position.set(90, 60, 120); orbit.target.set(0, 10, 0); }
-    function setInterior() { orbit.enabled = false; fp.lock(); camera.position.set(0, 6, 0); }
-    setExterior();
-
-    let isNight = false; document.getElementById('toggleDayNight').onclick = () => { isNight = !isNight; if (isNight) { sun.intensity = 0.2; hemi.intensity = 0.2; scene.background = new THREE.Color(0x0a0c1a); } else { sun.intensity = 2; hemi.intensity = 0.7; scene.background = new THREE.Color(0x87CEEB); } };
-    document.getElementById('viewExterior').onclick = setExterior;
-    document.getElementById('viewInterior').onclick = setInterior;
-
-    window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-
-   
+    animate();
+  </script>
+</body>
+</html>
