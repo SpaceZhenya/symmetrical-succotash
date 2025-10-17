@@ -3,31 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arena Clash 3D</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        canvas {
-            display: block;
-        }
-        #hud {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            z-index: 10;
-        }
-    </style>
+    <title>3D Adventure Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 </head>
 <body>
-    <div id="hud">
-        <p>Health: <span id="health">100</span></p>
-        <p>Enemy Health: <span id="enemyHealth">100</span></p>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.min.js"></script>
-    <script src="main.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(50, 50);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Rocks (boundaries)
+        const rockGeometry = new THREE.SphereGeometry(1, 16, 16);
+        const rockMaterial = new THREE.MeshBasicMaterial({ color: 0x808080 });
+
+        for (let i = -24; i <= 24; i += 2) {
+            // Place rocks around the map's edges
+            const rock1 = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock1.position.set(i, 0.5, -24);
+            scene.add(rock1);
+
+            const rock2 = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock2.position.set(i, 0.5, 24);
+            scene.add(rock2);
+
+            const rock3 = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock3.position.set(-24, 0.5, i);
+            scene.add(rock3);
+
+            const rock4 = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock4.position.set(24, 0.5, i);
+            scene.add(rock4);
+        }
+
+        // Player
+        const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const playerMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+        const player = new THREE.Mesh(playerGeometry, playerMaterial);
+        player.position.y = 0.5;
+        scene.add(player);
+
+        // Lighting
+        const light = new THREE.AmbientLight(0xffffff); // Soft white light
+        scene.add(light);
+
+        // Camera position
+        camera.position.set(0, 10, 10);
+        camera.lookAt(0, 0, 0);
+
+        // Movement controls
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function checkCollision(newX, newZ) {
+            // Prevents the player from moving out of bounds (simple collision detection)
+            return newX > -23 && newX < 23 && newZ > -23 && newZ < 23;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Player movement logic
+            let newX = player.position.x;
+            let newZ = player.position.z;
+
+            if (keys['ArrowUp']) newZ -= 0.1;
+            if (keys['ArrowDown']) newZ += 0.1;
+            if (keys['ArrowLeft']) newX -= 0.1;
+            if (keys['ArrowRight']) newX += 0.1;
+
+            if (checkCollision(newX, newZ)) {
+                player.position.x = newX;
+                player.position.z = newZ;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
 </body>
 </html>
